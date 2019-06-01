@@ -373,6 +373,7 @@ wms.Overlay = L.Layer.extend({
         if (!this._map) {
             return;
         }
+        this.fire('loading');
         // Determine image URL and whether it has changed since last update
         this.updateWmsParams();
         var url = this.getImageUrl();
@@ -387,7 +388,7 @@ wms.Overlay = L.Layer.extend({
         var overlay = L.imageOverlay(url, bounds, {'opacity': 0});
         overlay.addTo(this._map);
         overlay.once('load', _swap, this);
-        function _swap() {
+        function _swap(ev) {
             if (!this._map) {
                 return;
             }
@@ -405,6 +406,7 @@ wms.Overlay = L.Layer.extend({
             if (this.options.isBack === false) {
                 overlay.bringToFront();
             }
+            this.fire('load', ev);
         }
         if ((this._map.getZoom() < this.options.minZoom) ||
             (this._map.getZoom() > this.options.maxZoom)){
