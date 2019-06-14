@@ -177,6 +177,40 @@ Name | Description
 `showWaiting()` | Start AJAX wait animation (spinner, etc.)
 `hideWaiting()` | Stop AJAX wait animation
 
+
+### Set Request Headers
+
+You can set headers for each layer image request when use L.WMS.Source and L.WMS.Layer. This is usefull when you need to send Authorization headers to the server. Works though 2 new optional properties:
+
+`headers` : `Array<{name: string, value: string}>` An array with static headers.
+
+`getAjaxHeaders` : `() => Array<{name: string, value: string}>` A function used to provide dynamic headers, this function its called on each image request, so, avoid heavy calculations or I/O operations without memoization.
+
+#### getAjaxHeaders:
+```javascript
+wms.source('http://url.png', {
+    format: 'image/jpeg',
+    transparent: false,
+    opacity: 0.5,
+    getAjaxHeaders: () => { // This will be called in all image request
+        const auth = localStorage.get('authToken');
+        return [{name: 'Authorization', value: auth ? `Bearer ${auth.token}` : ''}]
+    }
+}).getLayer('overlay').addTo(this.map);
+```
+#### headers:
+```javascript
+const authToken = 'qrjnvf....';
+wms.source('http://url.png', {
+    format: 'image/jpeg',
+    transparent: false,
+    opacity: 0.5,
+    headers: [{ // This wont never change
+      name: 'Authorization', value: `Bearer ${authToken}`
+    }]
+}).getLayer('overlay').addTo(this.map);
+```
+
 [Leaflet]: http://leafletjs.com
 [esri-leaflet]: https://github.com/Esri/esri-leaflet
 [L.TileLayer.WMS]: http://leafletjs.com/reference.html#tilelayer-wms

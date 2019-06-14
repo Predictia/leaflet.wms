@@ -5,444 +5,487 @@
  * MIT License
  */
 
-(function (factory) {
+(function(factory) {
     // Module systems magic dance, Leaflet edition
     if (typeof define === 'function' && define.amd) {
-        // AMD
-        define(['leaflet'], factory);
+      // AMD
+      define(['leaflet'], factory);
     } else if (typeof module !== 'undefined') {
-        // Node/CommonJS
-        module.exports = factory(require('leaflet'));
+      // Node/CommonJS
+      module.exports = factory(require('leaflet'));
     } else {
-        // Browser globals
-        if (typeof this.L === 'undefined')
-            throw 'Leaflet must be loaded first!';
-        // Namespace
-        this.L.WMS = this.L.wms = factory(this.L);
+      // Browser globals
+      if (typeof this.L === 'undefined') throw 'Leaflet must be loaded first!';
+      // Namespace
+      this.L.WMS = this.L.wms = factory(this.L);
     }
-}(function (L) {
-
-// Module object
-var wms = {};
-
-// Quick shim for Object.keys()
-if (!('keys' in Object)) {
-    Object.keys = function(obj) {
+  })(function(L) {
+    var wms = {};
+  
+    // Quick shim for Object.keys()
+    if (!('keys' in Object)) {
+      Object.keys = function(obj) {
         var result = [];
         for (var i in obj) {
-            if (obj.hasOwnProperty(i)) {
-                result.push(i);
-            }
+          if (obj.hasOwnProperty(i)) {
+            result.push(i);
+          }
         }
         return result;
-    };
-}
-
-/*
- * wms.Source
- * The Source object manages a single WMS connection.  Multiple "layers" can be
- * created with the getLayer function, but a single request will be sent for
- * each image update.  Can be used in non-tiled "overlay" mode (default), or
- * tiled mode, via an internal wms.Overlay or wms.TileLayer, respectively.
- */
-wms.Source = L.Layer.extend({
-    'options': {
-        'untiled': true,
-        'identify': true
-    },
-
-    'initialize': function(url, options) {
+      };
+    }
+  
+    /*
+     * wms.Source
+     * The Source object manages a single WMS connection.  Multiple "layers" can be
+     * created with the getLayer function, but a single request will be sent for
+     * each image update.  Can be used in non-tiled "overlay" mode (default), or
+     * tiled mode, via an internal wms.Overlay or wms.TileLayer, respectively.
+     */
+    wms.Source = L.Layer.extend({
+      options: {
+        untiled: true,
+        identify: true
+      },
+  
+      initialize: function(url, options) {
         L.setOptions(this, options);
         if (this.options.tiled) {
-            this.options.untiled = false;
+          this.options.untiled = false;
         }
         this._url = url;
         this._subLayers = {};
         this._overlay = this.createOverlay(this.options.untiled);
-    },
-
-    'createOverlay': function(untiled) {
+      },
+  
+      createOverlay: function(untiled) {
         // Create overlay with all options other than untiled & identify
         var overlayOptions = {};
         for (var opt in this.options) {
-            if (opt != 'untiled' && opt != 'identify') {
-                overlayOptions[opt] = this.options[opt];
-            }
+          if (opt != 'untiled' && opt != 'identify') {
+            overlayOptions[opt] = this.options[opt];
+          }
         }
         if (untiled) {
-            return wms.overlay(this._url, overlayOptions);
+          return wms.overlay(this._url, overlayOptions);
         } else {
-            return wms.tileLayer(this._url, overlayOptions);
+          return wms.tileLayer(this._url, overlayOptions);
         }
-    },
-
-    'onAdd': function(map) {
-        L.Layer.prototype.onAdd.call(this, map);
+      },
+  
+      onAdd: function(map) {
+        // L.Layer.prototype.onAdd.call(this, map);
         this.refreshOverlay();
-    },
-
-    'onRemove': function() {
-    },
-
-    'getEvents': function() {
+      },
+  
+      onRemove: function() {},
+  
+      getEvents: function() {
         if (this.options.identify) {
-            return {'click': this.identify};
+          return { click: this.identify };
         } else {
-            return {};
+          return {};
         }
-    },
-
-    'setOpacity': function(opacity) {
-         this.options.opacity = opacity;
-         if (this._overlay) {
-             this._overlay.setOpacity(opacity);
-         }
-    },
-    
-    'bringToBack': function() {
-         this.options.isBack = true;
-         if (this._overlay) {
-             this._overlay.bringToBack();
-         }
-    },
-
-    'bringToFront': function() {
-         this.options.isBack = false;
-         if (this._overlay) {
-             this._overlay.bringToFront();
-         }
-    },
-
-    'getLayer': function(name) {
+      },
+  
+      setOpacity: function(opacity) {
+        this.options.opacity = opacity;
+        if (this._overlay) {
+          this._overlay.setOpacity(opacity);
+        }
+      },
+  
+      bringToBack: function() {
+        this.options.isBack = true;
+        if (this._overlay) {
+          this._overlay.bringToBack();
+        }
+      },
+  
+      bringToFront: function() {
+        this.options.isBack = false;
+        if (this._overlay) {
+          this._overlay.bringToFront();
+        }
+      },
+  
+      getLayer: function(name) {
         return wms.layer(this, name);
-    },
-
-    'addSubLayer': function(name) {
+      },
+  
+      addSubLayer: function(name) {
         this._subLayers[name] = true;
         this.refreshOverlay();
-    },
-
-    'removeSubLayer': function(name) {
+      },
+  
+      removeSubLayer: function(name) {
         delete this._subLayers[name];
         this.refreshOverlay();
-    },
-
-    'refreshOverlay': function() {
-        var subLayers = Object.keys(this._subLayers).join(",");
+      },
+  
+      refreshOverlay: function() {
+        var subLayers = Object.keys(this._subLayers).join(',');
         if (!this._map) {
-            return;
+          return;
         }
         if (!subLayers) {
-            this._map.removeLayer(this._overlay);
+          this._overlay.remove();
         } else {
-            this._overlay.setParams({'layers': subLayers});
-            this._overlay.addTo(this._map);
+          this._overlay.setParams({ layers: subLayers });
+          this._overlay.addTo(this._map);
         }
-    },
-
-    'identify': function(evt) {
+      },
+  
+      identify: function(evt) {
         // Identify map features in response to map clicks. To customize this
         // behavior, create a class extending wms.Source and override one or
         // more of the following hook functions.
-
+  
         var layers = this.getIdentifyLayers();
         if (!layers.length) {
-            return;
+          return;
         }
         this.getFeatureInfo(
-            evt.containerPoint, evt.latlng, layers,
-            this.showFeatureInfo
+          evt.containerPoint,
+          evt.latlng,
+          layers,
+          this.showFeatureInfo
         );
-    },
-
-    'getFeatureInfo': function(point, latlng, layers, callback) {
+      },
+  
+      getFeatureInfo: function(point, latlng, layers, callback) {
         // Request WMS GetFeatureInfo and call callback with results
         // (split from identify() to faciliate use outside of map events)
         var params = this.getFeatureInfoParams(point, layers),
-            url = this._url + L.Util.getParamString(params, this._url);
-
+          url = this._url + L.Util.getParamString(params, this._url);
+  
         this.showWaiting();
         this.ajax(url, done);
-
+  
         function done(result) {
-            this.hideWaiting();
-            var text = this.parseFeatureInfo(result, url);
-            callback.call(this, latlng, text);
+          this.hideWaiting();
+          var text = this.parseFeatureInfo(result, url);
+          callback.call(this, latlng, text);
         }
-    },
-
-    'ajax': function(url, callback) {
-        ajax.call(this, url, callback);
-    },
-
-    'getIdentifyLayers': function() {
+      },
+  
+      ajax: function(url, callback) {
+        ajax.call(this, url, callback, this.options);
+      },
+  
+      getIdentifyLayers: function() {
         // Hook to determine which layers to identify
-        if (this.options.identifyLayers)
-            return this.options.identifyLayers;
+        if (this.options.identifyLayers) return this.options.identifyLayers;
         return Object.keys(this._subLayers);
-     },
-
-    'getFeatureInfoParams': function(point, layers) {
+      },
+  
+      getFeatureInfoParams: function(point, layers) {
         // Hook to generate parameters for WMS service GetFeatureInfo request
         var wmsParams, overlay;
         if (this.options.untiled) {
-            // Use existing overlay
-            wmsParams = this._overlay.wmsParams;
+          // Use existing overlay
+          wmsParams = this._overlay.wmsParams;
         } else {
-            // Create overlay instance to leverage updateWmsParams
-            overlay = this.createOverlay(true);
-            overlay.updateWmsParams(this._map);
-            wmsParams = overlay.wmsParams;
-            wmsParams.layers = layers.join(',');
+          // Create overlay instance to leverage updateWmsParams
+          overlay = this.createOverlay(true);
+          overlay.updateWmsParams(this._map);
+          wmsParams = overlay.wmsParams;
+          wmsParams.layers = layers.join(',');
         }
         var infoParams = {
-            'request': 'GetFeatureInfo',
-            'query_layers': layers.join(','),
-            'X': Math.round(point.x),
-            'Y': Math.round(point.y)
+          request: 'GetFeatureInfo',
+          query_layers: layers.join(','),
+          X: Math.round(point.x),
+          Y: Math.round(point.y)
         };
         return L.extend({}, wmsParams, infoParams);
-    },
-
-    'parseFeatureInfo': function(result, url) {
+      },
+  
+      parseFeatureInfo: function(result, url) {
         // Hook to handle parsing AJAX response
-        if (result == "error") {
-            // AJAX failed, possibly due to CORS issues.
-            // Try loading content in <iframe>.
-            result = "<iframe src='" + url + "' style='border:none'>";
+        if (result == 'error') {
+          // AJAX failed, possibly due to CORS issues.
+          // Try loading content in <iframe>.
+          result = "<iframe src='" + url + "' style='border:none'>";
         }
         return result;
-    },
-
-    'showFeatureInfo': function(latlng, info) {
+      },
+  
+      showFeatureInfo: function(latlng, info) {
         // Hook to handle displaying parsed AJAX response to the user
         if (!this._map) {
-            return;
+          return;
         }
         this._map.openPopup(info, latlng);
-    },
-
-    'showWaiting': function() {
+      },
+  
+      showWaiting: function() {
         // Hook to customize AJAX wait animation
-        if (!this._map)
-            return;
-        this._map._container.style.cursor = "progress";
-    },
-
-    'hideWaiting': function() {
+        if (!this._map) return;
+        this._map._container.style.cursor = 'progress';
+      },
+  
+      hideWaiting: function() {
         // Hook to remove AJAX wait animation
-        if (!this._map)
-            return;
-        this._map._container.style.cursor = "default";
-    }
-});
-
-wms.source = function(url, options) {
-    return new wms.Source(url, options);
-};
-
-/*
- * Layer
- * Leaflet "layer" with all actual rendering handled via an underlying Source
- * object.  Can be called directly with a URL to automatically create or reuse
- * an existing Source.  Note that the auto-source feature doesn't work well in
- * multi-map environments; so for best results, create a Source first and use
- * getLayer() to retrieve wms.Layer instances.
- */
-
-wms.Layer = L.Layer.extend({
-    'initialize': function(source, layerName, options) {
+        if (!this._map) return;
+        this._map._container.style.cursor = 'default';
+      }
+    });
+  
+    wms.source = function(url, options) {
+      return new wms.Source(url, options);
+    };
+  
+    /*
+     * Layer
+     * Leaflet "layer" with all actual rendering handled via an underlying Source
+     * object.  Can be called directly with a URL to automatically create or reuse
+     * an existing Source.  Note that the auto-source feature doesn't work well in
+     * multi-map environments; so for best results, create a Source first and use
+     * getLayer() to retrieve wms.Layer instances.
+     */
+  
+    wms.Layer = L.Layer.extend({
+      initialize: function(source, layerName, options) {
         L.setOptions(this, options);
         if (!source.addSubLayer) {
-            // Assume source is a URL
-            source = wms.getSourceForUrl(source, options);
+          // Assume source is a URL
+          source = wms.getSourceForUrl(source, options);
         }
         this._source = source;
         this._name = layerName;
-    },
-    'onAdd': function(map) {
-        L.Layer.prototype.onAdd.call(this, map);
-        if (!this._source._map)
-            this._source.addTo(this._map);
+      },
+      onAdd: function() {
+        // L.Layer.prototype.onAdd.call(this, map);
+        if (!this._source._map) this._source.addTo(this._map);
         this._source.addSubLayer(this._name);
-    },
-    'onRemove': function() {
+      },
+      onRemove: function() {
         this._source.removeSubLayer(this._name);
         this._source.removeFrom(this._map);
-    },
-    'setOpacity': function(opacity) {
+      },
+      setOpacity: function(opacity) {
         this._source.setOpacity(opacity);
-    },
-    'bringToBack': function() {
+      },
+      bringToBack: function() {
         this._source.bringToBack();
-    },
-    'bringToFront': function() {
+      },
+      bringToFront: function() {
         this._source.bringToFront();
-    }
-});
-
-wms.layer = function(source, options) {
-    return new wms.Layer(source, options);
-};
-
-// Cache of sources for use with wms.Layer auto-source option
-var sources = {};
-wms.getSourceForUrl = function(url, options) {
-    if (!sources[url]) {
+      }
+    });
+  
+    wms.layer = function(source, options) {
+      return new wms.Layer(source, options);
+    };
+  
+    // Cache of sources for use with wms.Layer auto-source option
+    var sources = {};
+    wms.getSourceForUrl = function(url, options) {
+      if (!sources[url]) {
         sources[url] = wms.source(url, options);
-    }
-    return sources[url];
-};
-
-
-// Copy tiled WMS layer from leaflet core, in case we need to subclass it later
-wms.TileLayer = L.TileLayer.WMS;
-wms.tileLayer = L.tileLayer.wms;
-
-/*
- * wms.Overlay:
- * "Single Tile" WMS image overlay that updates with map changes.
- * Portions of wms.Overlay are directly extracted from L.TileLayer.WMS.
- * See Leaflet license.
- */
-wms.Overlay = L.Layer.extend({
-    'defaultWmsParams': {
-        'service': 'WMS',
-        'request': 'GetMap',
-        'version': '1.1.1',
-        'layers': '',
-        'styles': '',
-        'format': 'image/jpeg',
-        'transparent': false
-    },
-
-    'options': {
-        'crs': null,
-        'uppercase': false,
-        'attribution': '',
-        'opacity': 1,
-        'isBack': false,
-        'minZoom': 0,
-        'maxZoom': 18
-    },
-
-    'initialize': function(url, options) {
+      }
+      return sources[url];
+    };
+  
+    // Extends default TileLayer to overwrite createTile method in order to inject our request headers
+    wms.TileLayer = L.TileLayer.WMS.extend({
+      createTile: function(coords, done) {
+        var _done = function(response) {
+          img.src = URL.createObjectURL(response);
+          done(null, img);
+        }.bind(this);
+        var url = this.getTileUrl(coords);
+        var img = document.createElement('img');
+        ajax(url, _done, this.options, 'blob');
+      }
+    });
+  
+    wms.tileLayer = function(url, options) {
+      return new wms.TileLayer(url, options);
+    };
+  
+    wms.ImageOverlay = L.ImageOverlay.extend({
+      _initImage: function() {
+        var done = function(response) {
+          if ('error' !== response) {
+            this._updateOpacity();
+            L.extend(this._image, {
+              galleryimg: 'no',
+              onselectstart: L.Util.falseFn,
+              onmousemove: L.Util.falseFn,
+              onload: this._onImageLoad.bind(this),
+              src: URL.createObjectURL(response)
+            });
+          }
+        }.bind(this);
+        this._image = document.createElement('img');
+        ajax(this._url, done, this.options, 'blob');
+      },
+      _onImageLoad: function() {
+        this.fire('load');
+      }
+    });
+  
+    wms.imageOverlay = function(url, bounds, options) {
+      return new wms.ImageOverlay(url, bounds, options);
+    };
+  
+    /*
+     * wms.Overlay:
+     * "Single Tile" WMS image overlay that updates with map changes.
+     * Portions of wms.Overlay are directly extracted from L.TileLayer.WMS.
+     * See Leaflet license.
+     */
+    wms.Overlay = L.Layer.extend({
+      defaultWmsParams: {
+        service: 'WMS',
+        request: 'GetMap',
+        version: '1.1.1',
+        layers: '',
+        styles: '',
+        format: 'image/jpeg',
+        transparent: false
+      },
+  
+      options: {
+        crs: null,
+        uppercase: false,
+        attribution: '',
+        opacity: 1,
+        isBack: false,
+        minZoom: 0,
+        maxZoom: 18,
+        getAjaxHeaders: null,
+        headers: null
+      },
+  
+      initialize: function(url, options) {
         this._url = url;
-
+  
         // Move WMS parameters to params object
-        var params = {}, opts = {};
+        var params = {},
+          opts = {};
         for (var opt in options) {
-             if (opt in this.options) {
-                 opts[opt] = options[opt];
-             } else {
-                 params[opt] = options[opt];
-             }
+          if (opt in this.options) {
+            opts[opt] = options[opt];
+          } else {
+            params[opt] = options[opt];
+          }
         }
         L.setOptions(this, opts);
         this.wmsParams = L.extend({}, this.defaultWmsParams, params);
-    },
-
-    'setParams': function(params) {
+      },
+  
+      setParams: function(params) {
         L.extend(this.wmsParams, params);
         this.update();
-    },
-
-    'getAttribution': function() {
+      },
+  
+      getAttribution: function() {
         return this.options.attribution;
-    },
-
-    'onAdd': function(map) {
-        L.Layer.prototype.onAdd.call(this, map);
+      },
+  
+      onAdd: function(map) {
+        // L.Layer.prototype.onAdd.call(this, map);
         this.update();
-    },
-
-    'onRemove': function(map) {
+      },
+  
+      onRemove: function(map) {
         if (this._currentOverlay) {
-            map.removeLayer(this._currentOverlay);
-            delete this._currentOverlay;
+          map.removeLayer(this._currentOverlay);
+          delete this._currentOverlay;
         }
         if (this._currentUrl) {
-            delete this._currentUrl;
+          delete this._currentUrl;
         }
-        L.Layer.prototype.onRemove.call(this, map);
-    },
-
-    'getEvents': function() {
+        // L.Layer.prototype.onRemove.call(this, map);
+      },
+  
+      getEvents: function() {
         return {
-            'moveend': this.update
+          moveend: this.update
         };
-    },
-
-    'update': function() {
+      },
+  
+      update: function() {
         if (!this._map) {
-            return;
+          return;
         }
         this.fire('loading');
         // Determine image URL and whether it has changed since last update
         this.updateWmsParams();
         var url = this.getImageUrl();
         if (this._currentUrl == url) {
-            return;
+          return;
         }
         this._currentUrl = url;
-
+  
         // Keep current image overlay in place until new one loads
         // (inspired by esri.leaflet)
         var bounds = this._map.getBounds();
-        var overlay = L.imageOverlay(url, bounds, {'opacity': 0});
+        //var overlay = L.imageOverlay(url, bounds, { opacity: 0 });
+        var overlay = wms.imageOverlay(
+          url,
+          bounds,
+          //L.extend(this.options, { opacity: 0 })
+          this.options
+        );
         overlay.addTo(this._map);
         overlay.once('load', _swap, this);
         function _swap(ev) {
-            if (!this._map) {
-                return;
-            }
-            if (overlay._url != this._currentUrl) {
-                this._map.removeLayer(overlay);
-                return;
-            } else if (this._currentOverlay) {
-                this._map.removeLayer(this._currentOverlay);
-            }
-            this._currentOverlay = overlay;
-            overlay.setOpacity(this.options.opacity || 0);
-            if (this.options.isBack === true) {
-                overlay.bringToBack();
-            }
-            if (this.options.isBack === false) {
-                overlay.bringToFront();
-            }
-            this.fire('load', ev);
-        }
-        if ((this._map.getZoom() < this.options.minZoom) ||
-            (this._map.getZoom() > this.options.maxZoom)){
+          if (!this._map) {
+            return;
+          }
+          if (overlay._url != this._currentUrl) {
             this._map.removeLayer(overlay);
+            return;
+          } else if (this._currentOverlay) {
+            this._map.removeLayer(this._currentOverlay);
+          }
+          this._currentOverlay = overlay;
+          overlay.setOpacity(this.options.opacity || 0);
+          if (this.options.isBack === true) {
+            overlay.bringToBack();
+          }
+          if (this.options.isBack === false) {
+            overlay.bringToFront();
+          }
+          this.fire('load', ev);
         }
-    },
-
-    'setOpacity': function(opacity) {
-         this.options.opacity = opacity;
-         if (this._currentOverlay) {
-             this._currentOverlay.setOpacity(opacity);
-         }
-    },
-
-    'bringToBack': function() {
+        if (
+          this._map.getZoom() < this.options.minZoom ||
+          this._map.getZoom() > this.options.maxZoom
+        ) {
+          this._map.removeLayer(overlay);
+        }
+      },
+  
+      setOpacity: function(opacity) {
+        this.options.opacity = opacity;
+        if (this._currentOverlay) {
+          this._currentOverlay.setOpacity(opacity);
+        }
+      },
+  
+      bringToBack: function() {
         this.options.isBack = true;
         if (this._currentOverlay) {
-            this._currentOverlay.bringToBack();
+          this._currentOverlay.bringToBack();
         }
-    },
-
-    'bringToFront': function() {
+      },
+  
+      bringToFront: function() {
         this.options.isBack = false;
         if (this._currentOverlay) {
-            this._currentOverlay.bringToFront();
+          this._currentOverlay.bringToFront();
         }
-    },
-
-    // See L.TileLayer.WMS: onAdd() & getTileUrl()
-    'updateWmsParams': function(map) {
+      },
+  
+      // See L.TileLayer.WMS: onAdd() & getTileUrl()
+      updateWmsParams: function(map) {
         if (!map) {
-            map = this._map;
+          map = this._map;
         }
         // Compute WMS options
         var bounds = map.getBounds();
@@ -452,52 +495,72 @@ wms.Overlay = L.Layer.extend({
         var projectionKey = wmsVersion >= 1.3 ? 'crs' : 'srs';
         var nw = crs.project(bounds.getNorthWest());
         var se = crs.project(bounds.getSouthEast());
-
+  
         // Assemble WMS parameter string
         var params = {
-            'width': size.x,
-            'height': size.y
+          width: size.x,
+          height: size.y
         };
         params[projectionKey] = crs.code;
-        params.bbox = (
-            wmsVersion >= 1.3 && crs === L.CRS.EPSG4326 ?
-            [se.y, nw.x, nw.y, se.x] :
-            [nw.x, se.y, se.x, nw.y]
+        params.bbox = (wmsVersion >= 1.3 && crs === L.CRS.EPSG4326
+          ? [se.y, nw.x, nw.y, se.x]
+          : [nw.x, se.y, se.x, nw.y]
         ).join(',');
-
+  
         L.extend(this.wmsParams, params);
-    },
-
-    'getImageUrl': function() {
+      },
+  
+      getImageUrl: function() {
         var uppercase = this.options.uppercase || false;
         var pstr = L.Util.getParamString(this.wmsParams, this._url, uppercase);
         return this._url + pstr;
-    }
-});
-
-wms.overlay = function(url, options) {
-    return new wms.Overlay(url, options);
-};
-
-// Simple AJAX helper (since we can't assume jQuery etc. are present)
-function ajax(url, callback) {
-    var context = this,
-        request = new XMLHttpRequest();
-    request.onreadystatechange = change;
-    request.open('GET', url);
-    request.send();
-
-    function change() {
+      }
+    });
+  
+    wms.overlay = function(url, options) {
+      return new wms.Overlay(url, options);
+    };
+  
+    // Simple AJAX helper (since we can't assume jQuery etc. are present)
+    function ajax(url, callback, options, responseType) {
+      function change() {
         if (request.readyState === 4) {
-            if (request.status === 200) {
-                callback.call(context, request.responseText);
-            } else {
-                callback.call(context, "error");
-            }
+          if (request.status === 200) {
+            callback.call(
+              context,
+              responseType === 'blob' ? request.response : request.responseText
+            );
+          } else {
+            callback.call(context, 'error');
+          }
         }
+      }
+      var _responseType = responseType || '';
+      var context = this,
+        request = new XMLHttpRequest();
+      var headers = getRequestHeaders(options);
+      request.onreadystatechange = change;
+      request.responseType = _responseType;
+      request.open('GET', url);
+      headers.forEach(function(header) {
+        request.setRequestHeader(header.name, header.value);
+      });
+      request.send();
     }
-}
-
-return wms;
-
-}));
+  
+    function getRequestHeaders(options) {
+      if (options.headers && 'array' === typeof options.headers) {
+        return options.headers;
+      }
+  
+      if (options.getAjaxHeaders) {
+        var returnedHeaders = options.getAjaxHeaders();
+        return returnedHeaders || [];
+      }
+  
+      return [];
+    }
+  
+    return wms;
+  });
+  
