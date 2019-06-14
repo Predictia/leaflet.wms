@@ -19,9 +19,10 @@ individually via `L.TileLayer.WMS` is problematic:
  * The browser can be overwhelmed when using a large tile size or displaying
    many layers at once.
 
-Various workarounds have been proposed to address these issues.  The goal of
-plugin is an attempt to bring all of these workarounds into a single WMS plugin
-for leaflet.
+Various workarounds have been proposed to address some of these issues, most notably
+in [Leaflet.NonTiledLayer](https://github.com/ptv-logistics/Leaflet.NonTiledLayer).
+The goal of this project to bring all of these concepts and more into a single,
+comprehensive WMS plugin for Leaflet.
 
 ## [Demo](http://heigeo.github.io/leaflet.wms)
 
@@ -32,7 +33,7 @@ for leaflet.
  * Layer identify via `GetFeatureInfo`
  * Pull requests welcome!
 
-> **Note:** this plugin does not work with Leaflet 0.7.3 or earlier.  You will need the latest `master` version of Leaflet (0.8-dev), which will be 1.0 when it comes out (soon).
+> **Note:** this plugin officially only works with Leaflet 1.0.  There is an [unsupported patch](https://github.com/heigeo/leaflet.wms/pull/8) that works with Leaflet 0.7, though it's not kept up to date.
 
 ## Usage
 
@@ -103,7 +104,7 @@ overlay.addTo(map);
 
 `L.WMS.Source` is a virtual Leaflet "layer" that manages multiple WMS layers coming from a single WMS source.  By using the same source for multiple layers, you can have the WMS service composite the image, and avoid overloading the client with multiple large images.  `L.WMS.Source` is a virtual layer, as it does not load the WMS image directly.  Instead, it creates an internal `L.WMS.Overlay` or `L.WMS.TileLayer` to handle the actual loading.
 
-Like the other WMS layers, `L.WMS.Source` takes a URL and an options object as initialization parameters.  The options are passed on to the underlying `Overlay` or `TileLayer`.  An additional option, `tiled`, toggles whether to use a `TileLayer`.  The default is `false`, which uses the non-tiled `Overlay`.  Unless your WMS service is optimized for tiling, the default should provide the best performance.
+Like the other WMS layers, `L.WMS.Source` takes a URL and an options object as initialization parameters.  The options are passed on to the underlying `Overlay` or `TileLayer`.  An additional option, `untiled`, toggles whether to use `Overlay` or `TileLayer`.  The default is `true`, which uses the non-tiled `Overlay`.  Unless your WMS service is optimized for tiling, the default should provide the best performance.  To use the `TileLayer`, set `untiled` to `false`.  You can also set `tiled` to `true`, which will both use the `TileLayer` backend and set `tiled=true` in the WMS request (see [#16](https://github.com/heigeo/leaflet.wms/issues/16).
 
 `L.WMS.Source` provides two functions for toggling on and off individual WMS layers (`addSubLayer` and `removeSubLayer`, respectively).  That said, it is usually more convenient to use `L.WMS.Layer` instances (described next).
 
@@ -150,6 +151,14 @@ control.addTo(map);
 
 ```javascript
 var MySource = L.WMS.Source.extend({
+    'ajax': function(url, callback) {
+        $.ajax(url, {
+            'context': this,
+            'success': function(result) {
+                callback.call(this, result);
+             }
+        });
+    },
     'showFeatureInfo': function(latlng, info) {
         $('.output').html(info);
     }
@@ -162,10 +171,45 @@ Name | Description
 -----|-------------
 `getIdentifyLayers()` | Determine which layers to identify (default is all visible layers)
 `getFeatureInfoParams(point, layers)` | Generate parameters for WMS `GetFeatureInfo` request
+`ajax(url, callback)` | Actual AJAX call.  The default implementation is a rudimentary `XMLHttpRequest` wrapper.  Override this if you want to use jQuery or something with more robust support for older browsers.  If you override this, be sure to preserve the value of `this` when calling the callback function (e.g. `callback.call(this, result)`).
 `parseFeatureInfo(result, url)` | Parse the AJAX response into HTML
 `showFeatureInfo(latlng, info)` | Display parsed AJAX response to the user (e.g in a popup)
 `showWaiting()` | Start AJAX wait animation (spinner, etc.)
 `hideWaiting()` | Stop AJAX wait animation
+
+
+### Set Request Headers
+
+You can set headers for each layer image request when use L.WMS.Source and L.WMS.Layer. This is usefull when you need to send Authorization headers to the server. Works though 2 new optional properties:
+
+`headers` : `Array<{name: string, value: string}>` An array with static headers.
+
+`getAjaxHeaders` : `() => Array<{name: string, value: string}>` A function used to provide dynamic headers, this function its called on each image request, so, avoid heavy calculations or I/O operations without memoization.
+
+#### getAjaxHeaders:
+```javascript
+wms.source('http://url.png', {
+    format: 'image/jpeg',
+    transparent: false,
+    opacity: 0.5,
+    getAjaxHeaders: () => { // This will be called in all image request
+        const auth = localStorage.get('authToken');
+        return [{name: 'Authorization', value: auth ? `Bearer ${auth.token}` : ''}]
+    }
+}).getLayer('overlay').addTo(this.map);
+```
+#### headers:
+```javascript
+const authToken = 'qrjnvf....';
+wms.source('http://url.png', {
+    format: 'image/jpeg',
+    transparent: false,
+    opacity: 0.5,
+    headers: [{ // This wont never change
+      name: 'Authorization', value: `Bearer ${authToken}`
+    }]
+}).getLayer('overlay').addTo(this.map);
+```
 
 [Leaflet]: http://leafletjs.com
 [esri-leaflet]: https://github.com/Esri/esri-leaflet
