@@ -87,6 +87,11 @@
           return {};
         }
       },
+
+      setUrl: function(url) {
+        this._url = url;
+        this._overlay && this._overlay.setUrl(url);
+      },
   
       setOpacity: function(opacity) {
         this.options.opacity = opacity;
@@ -290,6 +295,12 @@
   
     // Extends default TileLayer to overwrite createTile method in order to inject our request headers
     wms.TileLayer = L.TileLayer.WMS.extend({
+      options: {
+        crs: null,
+        uppercase: false,
+        headers: null,
+        getAjaxHeaders: null
+      },
       createTile: function(coords, done) {
         var _done = function(response) {
           img.src = URL.createObjectURL(response);
@@ -298,6 +309,9 @@
         var url = this.getTileUrl(coords);
         var img = document.createElement('img');
         ajax(url, _done, this.options, 'blob');
+        L.DomEvent.on(img, 'load', L.Util.bind(this._tileOnLoad, this, done, img));
+		    L.DomEvent.on(img, 'error', L.Util.bind(this._tileOnError, this, done, img));
+        return img;
       }
     });
   
@@ -379,6 +393,11 @@
   
       setParams: function(params) {
         L.extend(this.wmsParams, params);
+        this.update();
+      },
+
+      setUrl: function(url) {
+        this._url = url;
         this.update();
       },
   
