@@ -1,8 +1,14 @@
 {
   "author": "Houston Engineering, Inc",
+  "contributors": [
+    {
+      "name": "ilsanchez",
+      "url": "https://github.com/ilsanchez"
+    }
+  ],
   "name": "leaflet.wms",
   "version": "0.2.0",
-  "description": "A Leaflet plugin for working with Web Map services, providing: single-tile/untiled/nontiled layers, shared WMS sources, and GetFeatureInfo-powered identify",
+  "description": "A Leaflet plugin for working with Web Map services, providing: single-tile/untiled/nontiled layers, shared WMS sources, request headers injection, and GetFeatureInfo-powered identify",
   "license": "MIT",
   "homepage": "https://github.com/heigeo/leaflet.wms",
   "bugs": {
