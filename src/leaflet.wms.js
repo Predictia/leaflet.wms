@@ -472,6 +472,7 @@
         }
         this._currentOverlay = overlay;
         overlay.setOpacity(this.options.opacity || 0);
+        overlay.setZIndex(this.options.zIndex || 1);
         if (this.options.isBack === true) {
           overlay.bringToBack();
         }
