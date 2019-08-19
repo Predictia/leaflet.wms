@@ -79,7 +79,7 @@
     },
 
     onRemove: function() {
-      
+      this._overlay.remove();
     },
 
     getEvents: function() {
@@ -337,6 +337,9 @@
   };
 
   wms.ImageOverlay = L.ImageOverlay.extend({
+    options: {
+      abortCurrentAjax: null
+    },
     _initImage: function() {
       var done = function(response) {
         if ('error' !== response) {
@@ -351,7 +354,7 @@
         }
       }.bind(this);
       this._image = document.createElement('img');
-      ajax(this._url, done, this.options, 'blob');
+      this.abortCurrentAjax = ajax(this._url, done, this.options, 'blob');
     },
     _onImageLoad: function() {
       this.fire('load');
@@ -378,7 +381,7 @@
       format: 'image/jpeg',
       transparent: false
     },
-
+    
     options: {
       crs: null,
       uppercase: false,
@@ -389,11 +392,12 @@
       maxZoom: 18,
       getAjaxHeaders: null,
       headers: null,
-      zIndex: 1
+      zIndex: 1,
     },
 
     initialize: function(url, options) {
       this._url = url;
+      this.keep = true;
 
       // Move WMS parameters to params object
       var params = {},
@@ -429,20 +433,26 @@
     },
 
     onRemove: function(map) {
+      this.keep = false;
       if (this._currentOverlay) {
         map.removeLayer(this._currentOverlay);
-        if (
-          this._currentOverlay &&
-          this._currentOverlay._image
-        ) {
-          L.DomUtils.remove(this._currentOverlay._image);
+        this._tryAbortCurrentAjax();
+        if (this._currentOverlay._image) {
+          L.DomUtil.remove(this._currentOverlay._image);
+          delete this._currentOverlay;
         }
-        delete this._currentOverlay;
       }
       if (this._currentUrl) {
         delete this._currentUrl;
       }
-      // L.Layer.prototype.onRemove.call(this, map);
+    },
+
+    _tryAbortCurrentAjax: function() {
+      try {
+        this._currentOverlay.abortCurrentAjax();
+      } catch (err) {
+        console.warn('Ajax cannot be canceled');
+      }
     },
 
     getEvents: function() {
@@ -467,16 +477,18 @@
       // Keep current image overlay in place until new one loads
       // (inspired by esri.leaflet)
       var bounds = this._map.getBounds();
-      //var overlay = L.imageOverlay(url, bounds, { opacity: 0 });
       var overlay = wms.imageOverlay(
         url,
         bounds,
-        //L.extend(this.options, { opacity: 0 })
         this.options
       );
       overlay.addTo(this._map);
       overlay.once('load', _swap, this);
       function _swap(ev) {
+        if (!this.keep) {
+          L.DomUtil.remove(overlay._image);
+          return;
+        }
         if (!this._map) {
           return;
         }
@@ -598,6 +610,7 @@
       request.setRequestHeader(header.name, header.value);
     });
     request.send();
+    return function() { request.abort(); }.bind(this);
   }
 
   function getRequestHeaders(options) {
