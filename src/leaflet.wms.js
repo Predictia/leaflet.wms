@@ -78,7 +78,9 @@
       this.refreshOverlay();
     },
 
-    onRemove: function() {},
+    onRemove: function() {
+      
+    },
 
     getEvents: function() {
       if (this.options.identify) {
@@ -102,7 +104,7 @@
 
     setZIndex: function(zIndex) {
       this.options.zIndex = zIndex;
-      if(this._overlay) {
+      if (this._overlay) {
         this._overlay.setZIndex(zIndex);
       }
     },
@@ -316,8 +318,16 @@
       var url = this.getTileUrl(coords);
       var img = document.createElement('img');
       ajax(url, _done, this.options, 'blob');
-      L.DomEvent.on(img, 'load', L.Util.bind(this._tileOnLoad, this, done, img));
-      L.DomEvent.on(img, 'error', L.Util.bind(this._tileOnError, this, done, img));
+      L.DomEvent.on(
+        img,
+        'load',
+        L.Util.bind(this._tileOnLoad, this, done, img)
+      );
+      L.DomEvent.on(
+        img,
+        'error',
+        L.Util.bind(this._tileOnError, this, done, img)
+      );
       return img;
     }
   });
@@ -421,6 +431,12 @@
     onRemove: function(map) {
       if (this._currentOverlay) {
         map.removeLayer(this._currentOverlay);
+        if (
+          this._currentOverlay &&
+          this._currentOverlay._image
+        ) {
+          L.DomUtils.remove(this._currentOverlay._image);
+        }
         delete this._currentOverlay;
       }
       if (this._currentUrl) {
